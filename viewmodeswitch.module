@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+/*function viewmodeswitch_menu() {
+  $items['admin/config/system/view-mode-switch'] = array(
+    'title' => 'View mode switch',
+    'description' => 'Edit view mode switch settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('view_mode_switch_edit_form'),
+    'access arguments' => array('administer view mode switch'),
+    'file' => 'viewmodeswitch.admin.inc',
+  );
+
+  return $items;
+}*/
+
+/**
+ * Implements hook_permission().
+ */
+function viewmodeswitch_permission() {
+  return array(
+    'administer view mode switch' => array(
+      'title' => t('Administer view mode switch'),
+      'description' => t('Administer configuration for view mode switch.'),
+    ),
+    'access view mode switch' => array(
+      'title' => t('Access view mode switch'),
+      'description' => t('Access view mode switch field on node edit.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function viewmodeswitch_form_node_form_alter(&$form, $form_state, $form_id) {
+
+  if(user_access('access view mode switch')){
+    $entity = $form['#entity'];
+    $entity_info = entity_get_info($form['#entity_type']);
+    //Convert the allowed view modes into select list options
+    $allowed_view_modes = variable_get('allowed_view_modes_'. $entity->type);
+    $view_mode_options = array();
+    foreach($entity_info['view modes'] as $key => $value) {
+      //Entity view modes that match the allowed list should be made available
+      if(in_array($key, $allowed_view_modes)){
+        $view_mode_options[$key] = $value['label'];
+      }
+    }
+
+    $form['view_modes'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('View modes'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#group' => 'additional_settings',
+    );
+    $form['view_modes']['view_mode_switch'] = array(
+      '#type' => 'select',
+      '#title' => t('View mode'),
+      '#options' => $view_mode_options,
+      '#default_value' => isset($entity->view_mode_switch) ? filter_xss_admin($entity->view_mode_switch) : 'full',
+    );
+  }
+}
+
+function viewmodeswitch_form_node_type_form_alter(&$form, $form_state, $form_id) {
+  if(user_access('administer view mode switch')){
+    $entity_info = entity_get_info('node');
+    //Convert the view modes into select list options
+    $view_mode_options = array();
+    foreach($entity_info['view modes'] as $key => $value) {
+      $view_mode_options[$key] = $value['label'];
+    }
+
+    $form['view_modes'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('View mode switcher'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#group' => 'additional_settings',
+    );
+    $form['view_modes']['allowed_view_modes'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Allowed view modes on node edit'),
+      '#description' => t('These view modes are given to the admin as options of how to display the node'),
+      '#options' => $view_mode_options,
+      '#default_value' => variable_get('allowed_view_modes_'. $form['#node_type']->type),
+    );
+  }
+}
+
+/**
+ * Implements hook_entity_view_mode_alter().
+ */
+function viewmodeswitch_entity_view_mode_alter(&$view_mode, $context) {
+  if(isset($context['entity']->view_mode_switch) && !is_null($context['entity']->view_mode_switch)){
+    $view_mode = $context['entity']->view_mode_switch;
+  }
+}

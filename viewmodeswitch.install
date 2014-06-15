@@ -1,0 +1,36 @@
+<?php
+
+/**
+ * Implements hook_schema_alter().
+ */
+function viewmodeswitch_schema_alter(&$schema) {
+  // Add a field view_mode_switch to the node_revision table in order
+  // to store the name of view mode to switch to.
+  if (isset($schema['node_revision'])) {
+    $schema['node_revision']['fields']['view_mode_switch'] = array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '',
+      'description' => 'Chosen view mode on each node.',
+    );
+  }
+}
+
+/**
+ * Implements hook_install().
+ */
+function viewmodeswitch_install() {
+  $schema['node_revision'] = array();
+  viewmodeswitch_schema_alter($schema);
+  foreach ($schema['node_revision']['fields'] as $name => $spec) {
+    db_add_field('node_revision', $name, $spec);
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function viewmodeswitch_uninstall() {
+  db_drop_field('node_revision', 'view_mode_switch');
+}

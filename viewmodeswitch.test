@@ -1,0 +1,30 @@
+<?php
+
+/**
+ * @file
+ * Test integration for the viewmodeswitch module.
+ */
+
+class ViewModeSwitchTestHelper extends DrupalWebTestCase {
+
+  /**
+   * Overrides DrupalWebTestCase::setUp().
+   */
+  public function setUp(array $modules = array()) {
+    $modules[] = 'entity_view_mode';
+    $modules[] = 'entity_view_mode_test';
+    $modules[] = 'viewmodeswitch';
+    parent::setUp($modules);
+
+    // Create an administrative user.
+    $this->admin_user = $this->drupalCreateUser(array(
+      'administer entity view modes',
+      'administer content types',
+      'administer view mode switch',
+      'access view mode switch',
+    ));
+
+    //@todo: bring under test
+
+  }
+}

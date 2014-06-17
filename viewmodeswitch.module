@@ -66,6 +66,9 @@ function viewmodeswitch_form_node_form_alter(&$form, $form_state, $form_id) {
   }
 }
 
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
 function viewmodeswitch_form_node_type_form_alter(&$form, $form_state, $form_id) {
   if(user_access('administer view mode switch')){
     $entity_info = entity_get_info('node');
@@ -96,7 +99,7 @@ function viewmodeswitch_form_node_type_form_alter(&$form, $form_state, $form_id)
  * Implements hook_entity_view_mode_alter().
  */
 function viewmodeswitch_entity_view_mode_alter(&$view_mode, $context) {
-  if(isset($context['entity']->view_mode_switch) && !is_null($context['entity']->view_mode_switch)){
+  if(isset($context['entity']->view_mode_switch) && !empty($context['entity']->view_mode_switch)){
     $view_mode = $context['entity']->view_mode_switch;
   }
 }

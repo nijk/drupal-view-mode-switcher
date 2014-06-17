@@ -50,19 +50,22 @@ function viewmodeswitch_form_node_form_alter(&$form, $form_state, $form_id) {
       }
     }
 
-    $form['view_modes'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('View modes'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-      '#group' => 'additional_settings',
-    );
-    $form['view_modes']['view_mode_switch'] = array(
-      '#type' => 'select',
-      '#title' => t('View mode'),
-      '#options' => $view_mode_options,
-      '#default_value' => isset($entity->view_mode_switch) ? filter_xss_admin($entity->view_mode_switch) : 'full',
-    );
+    //Only show the view mode switcher if there is more than one to choose from
+    if(count($view_mode_options) > 1){
+      $form['view_modes'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('View modes'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+        '#group' => 'additional_settings',
+      );
+      $form['view_modes']['view_mode_switch'] = array(
+        '#type' => 'select',
+        '#title' => t('View mode'),
+        '#options' => $view_mode_options,
+        '#default_value' => isset($entity->view_mode_switch) ? filter_xss_admin($entity->view_mode_switch) : 'full',
+      );
+    }
   }
 }
 

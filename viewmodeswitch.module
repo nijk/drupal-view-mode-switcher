@@ -1,10 +1,16 @@
 <?php
 
 /**
+ * @todo: Provide some kind of batch processing of nodes so that a default view mode can be applied to bundles that implement the Switcher
+ * @todo: Remove access to delete the Switcher field in the menu local tasks
+ */
+
+
+/**
  * Implements hook_menu().
  */
 function viewmodeswitch_menu() {
-  $items['admin/config/system/view-mode-switch'] = array(
+  $items['admin/structure/view-mode-switch'] = array(
     'title' => 'View mode switch',
     'description' => 'Edit view mode switch settings',
     'page callback' => 'drupal_get_form',
@@ -38,6 +44,17 @@ function viewmodeswitch_permission() {
  * @param $form
  * @param $form_state
  */
+function viewmodeswitch_form_field_ui_field_overview_form_alter(&$form, &$form_state) {
+
+  //Hide the delete option
+  $form['fields']['field_view_mode_switcher']['delete']['#access'] = FALSE;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * @param $form
+ * @param $form_state
+ */
 function viewmodeswitch_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
   $default_field = &$form['instance']['default_value_widget']['field_view_mode_switcher'];
   $field_view_mode_switcher = &$default_field[$default_field['#language']];
@@ -49,8 +66,6 @@ function viewmodeswitch_form_field_ui_field_edit_form_alter(&$form, &$form_state
   $form['field']['cardinality']['#disabled'] = TRUE;
 }
 
-
-
 /**
  * Implements hook_form_FORM_ID_alter().
  */
@@ -58,6 +73,15 @@ function viewmodeswitch_form_node_form_alter(&$form, $form_state, $form_id) {
   if(user_access('access view mode switch')){
     $field_view_mode_switcher = &$form['field_view_mode_switcher'];
     $view_mode_options = &$field_view_mode_switcher[$field_view_mode_switcher['#language']]['#options'];
+    $default_value = &$field_view_mode_switcher[$field_view_mode_switcher['#language']]['#default_value'];
+
+    if(empty($default_value)){
+      $instance_info = field_info_instance($form['#entity_type'], 'field_view_mode_switcher', $form['#bundle']);
+      if(!empty($instance_info['default_value'])){
+        $default_value = filter_xss_admin($instance_info['default_value'][0]['value']);
+      }
+    }
+
     //Remove the _none option from the display
     unset($view_mode_options['_none']);
 

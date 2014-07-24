@@ -3,21 +3,22 @@
 /**
  * Implements hook_menu().
  */
-/*function viewmodeswitch_menu() {
+function viewmodeswitch_menu() {
   $items['admin/config/system/view-mode-switch'] = array(
     'title' => 'View mode switch',
     'description' => 'Edit view mode switch settings',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('view_mode_switch_edit_form'),
-    'access arguments' => array('administer view mode switch'),
+    'access arguments' => array('administer view mode switch'/*, 'administer content types'*/),
     'file' => 'viewmodeswitch.admin.inc',
   );
 
   return $items;
-}*/
+}
 
 /**
  * Implements hook_permission().
+ * @return array
  */
 function viewmodeswitch_permission() {
   return array(
@@ -34,61 +35,141 @@ function viewmodeswitch_permission() {
 
 /**
  * Implements hook_form_FORM_ID_alter().
+ * @param $form
+ * @param $form_state
+ */
+function viewmodeswitch_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+  $default_field = &$form['instance']['default_value_widget']['field_view_mode_switcher'];
+  $field_view_mode_switcher = &$default_field[$default_field['#language']];
+
+  //Remove the _none option from the default options
+  unset($field_view_mode_switcher['#options']['_none']);
+  //Disable fields/instance settings which should remain static
+  $form['instance']['required']['#disabled'] = TRUE;
+  $form['field']['cardinality']['#disabled'] = TRUE;
+}
+
+
+
+/**
+ * Implements hook_form_FORM_ID_alter().
  */
 function viewmodeswitch_form_node_form_alter(&$form, $form_state, $form_id) {
-
   if(user_access('access view mode switch')){
-    $entity = $form['#entity'];
-    $entity_info = entity_get_info($form['#entity_type']);
-    //Convert the allowed view modes into select list options
-    $allowed_view_modes = variable_get('allowed_view_modes_'. $entity->type);
-    $view_mode_options = array();
-    foreach($entity_info['view modes'] as $key => $value) {
-      //Entity view modes that match the allowed list should be made available
-      if(in_array($key, $allowed_view_modes)){
+    $field_view_mode_switcher = &$form['field_view_mode_switcher'];
+    $view_mode_options = &$field_view_mode_switcher[$field_view_mode_switcher['#language']]['#options'];
+    //Remove the _none option from the display
+    unset($view_mode_options['_none']);
+
+    //@todo: Handle the scenario where an option has been chosen but no longer exists
+
+    //Handle display of the switcher
+    switch(count($view_mode_options)){
+      case 0:
+        //Hide the view mode switcher entirely
+        $field_view_mode_switcher['#access'] = FALSE;
+        break;
+      case 1:
+        //Disable the view mode switcher
+        $field_view_mode_switcher['#disabled'] = TRUE;
+        break;
+      default:
+        //Do nothing?
+        break;
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function viewmodeswitch_form_node_type_form_alter(&$form, $form_state, $form_id) {
+  if(user_access('administer view mode switch')){
+    $enabled_bundles = variable_get('viewmodeswitch_enabled_bundles');
+    $bundle = $form['#node_type']->type;
+
+    //Only display the View Mode Switcher in the additional settings if the bundle is enabled
+    if(isset($enabled_bundles['node'][$bundle]) && 0 !== $enabled_bundles['node'][$bundle]){
+      $entity_info = entity_get_info('node');
+      //Convert the view modes into select list options
+      $view_mode_options = array();
+      foreach($entity_info['view modes'] as $key => $value) {
         $view_mode_options[$key] = $value['label'];
       }
-    }
 
-    $form['view_modes'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('View modes'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-      '#group' => 'additional_settings',
-    );
-    $form['view_modes']['view_mode_switch'] = array(
-      '#type' => 'select',
-      '#title' => t('View mode'),
-      '#options' => $view_mode_options,
-      '#default_value' => isset($entity->view_mode_switch) ? filter_xss_admin($entity->view_mode_switch) : 'full',
+      $form['view_modes'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('View mode switcher'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+        '#group' => 'additional_settings',
+      );
+
+      if(count($view_mode_options) > 0){
+        $form['view_modes']['allowed_view_modes'] = array(
+          '#type' => 'checkboxes',
+          '#title' => t('View modes allowed on switcher'),
+          '#description' => t('These view modes are given to the admin as options of how to display the node'),
+          '#options' => $view_mode_options,
+          '#default_value' => variable_get('allowed_view_modes_'. $form['#node_type']->type, array('full')),
+          '#disabled' => (count($view_mode_options) < 2) ? TRUE : FALSE,
+        );
+      }
+      $form['#validate'][] = '_viewmodeswitch_node_type_form_validate';
+      $form['#submit'][] = '_viewmodeswitch_node_type_form_submit';
+    }
+  }
+}
+
+function _viewmodeswitch_node_type_form_validate($form, &$form_state) {
+  $allowed_view_modes = _non_empty_array_items($form_state['values']['allowed_view_modes']);
+  if(count($allowed_view_modes) < 1){
+    form_set_error('view_modes',
+      t('You must choose at least one view mode to use with the View mode switcher')
     );
   }
 }
 
-function viewmodeswitch_form_node_type_form_alter(&$form, $form_state, $form_id) {
-  if(user_access('administer view mode switch')){
-    $entity_info = entity_get_info('node');
-    //Convert the view modes into select list options
-    $view_mode_options = array();
-    foreach($entity_info['view modes'] as $key => $value) {
-      $view_mode_options[$key] = $value['label'];
-    }
+function _viewmodeswitch_node_type_form_submit($form, &$form_state) {
+  $allowed_view_modes = _non_empty_array_items($form_state['values']['allowed_view_modes']);
 
-    $form['view_modes'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('View mode switcher'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-      '#group' => 'additional_settings',
-    );
-    $form['view_modes']['allowed_view_modes'] = array(
-      '#type' => 'checkboxes',
-      '#title' => t('Allowed view modes on node edit'),
-      '#description' => t('These view modes are given to the admin as options of how to display the node'),
-      '#options' => $view_mode_options,
-      '#default_value' => variable_get('allowed_view_modes_'. $form['#node_type']->type),
-    );
+  if (count($allowed_view_modes) > 0) {
+    $bundle = $form['#node_type']->type;
+    $entity_type = 'node';
+    $field = field_read_field('field_view_mode_switcher');
+    $instance = field_read_instance($entity_type, 'field_view_mode_switcher', $bundle);
+    $previously_allowed_view_modes = variable_get('allowed_view_modes_'. $bundle, array());
+
+    //Handle the scenario that the base field does not exist
+    if(empty($field)){
+      drupal_set_message(t('The base field field_view_mode_switcher does not exist. Could not create a View Mode Switcher for this content type'), 'error');
+    }else{
+      if (empty($instance)) {
+        $instance = array(
+          'field_name' => 'field_view_mode_switcher',
+          'required' => TRUE,
+          'entity_type' => $entity_type,
+          'bundle' => $bundle,
+          'label' => t('View Mode'),
+          'settings' => array(
+            '#options' => $allowed_view_modes,
+          ),
+          'widget' => array(
+            'type' => 'option_select',
+          ),
+          'display' => array(
+            'default' => array(
+              'type' => 'hidden',
+            ),
+          ),
+        );
+        field_create_instance($instance);
+      }else{
+        //@todo: Is this ever necessary?
+        //dpm('We should re-apply the Allowed view modes');
+        //field_update_instance($instance);
+      }
+    }
   }
 }
 
@@ -96,7 +177,104 @@ function viewmodeswitch_form_node_type_form_alter(&$form, $form_state, $form_id)
  * Implements hook_entity_view_mode_alter().
  */
 function viewmodeswitch_entity_view_mode_alter(&$view_mode, $context) {
-  if(isset($context['entity']->view_mode_switch) && !is_null($context['entity']->view_mode_switch)){
-    $view_mode = $context['entity']->view_mode_switch;
+  if('full' === $view_mode && !empty($context['entity']->field_view_mode_switcher)){
+    $lang = $context['entity']->language;
+    $view_mode = $context['entity']->field_view_mode_switcher[$lang][0]['value'];
   }
+}
+
+/**
+ * Allowed Values Function: To be set on field_create_field()
+ * @param $field
+ * @param $instance
+ * @param $entity_type
+ * @param $entity
+ * @param $cacheable
+ * @return array
+ */
+function field_viewmodeswitch_allowed_values($field, $instance, $entity_type, $entity, $cacheable) {
+  return viewmodeswitch_allowed_view_modes($entity_type, $instance['bundle']);
+}
+
+/**
+ * Returns a list of entity view modes that can be used by the View Mode Switcher.
+ * @param $entity_type
+ * @param $bundle_name
+ * @return array
+ */
+function viewmodeswitch_allowed_view_modes($entity_type, $bundle_name/* = NULL*/) {
+  $view_modes = array();
+  //@todo: this variable name is confusing in this context, as it holds all bundles - enabled or not
+  $bundles = variable_get('viewmodeswitch_enabled_bundles', array());
+  $enabled = _viewmodeswitch_enabled_bundles($bundles[$entity_type]);
+
+  /*
+    @todo: consider if this function should handle the ability to return allowed
+    view modes for every Entity Type. e.g:
+    array('node > bundles > view modes', 'user > bundles > view modes')
+  */
+
+  if(!empty($enabled) && isset($enabled[$bundle_name])){
+    $view_modes = _viewmodeswitch_allowed_view_modes_by_bundle($entity_type, $bundle_name);
+  }else{
+    $msg_vars = array('@bundle' => $bundle_name);
+    drupal_set_message(t('Bundle @bundle not enabled', $msg_vars), 'error');
+  }
+
+  return $view_modes;
+}
+
+/**
+ * Return only enabled bundles set on the View Mode Switch admin form
+ * @param $bundles
+ * @return array
+ */
+function _viewmodeswitch_enabled_bundles($bundles) {
+  $enabled = array();
+  if(!empty($bundles)){
+    foreach($bundles as $name => $bundle){
+      if(is_array($bundle)){
+        $items = _non_empty_array_items($bundle);
+        if(count($items) > 0){
+          $enabled[$name] = $items;
+        }
+      }elseif(0 !== $bundle){
+        $enabled[$name] = $bundle;
+      }
+    }
+  }
+  return $enabled;
+}
+
+/**
+ * Per-bundle list of view modes that can be used by the Switcher
+ * @param $entity_type
+ * @param $bundle_name
+ * @return array
+ */
+function _viewmodeswitch_allowed_view_modes_by_bundle($entity_type, $bundle_name) {
+  $view_modes = array();
+  $allowed_view_modes = variable_get('allowed_view_modes_'. $bundle_name, array());
+  if(count($allowed_view_modes) > 0){
+    foreach($allowed_view_modes as $view_mode_name){
+      $entity_info = entity_get_info($entity_type);
+      $view_mode_label = $entity_info['view modes'][$view_mode_name]['label'];
+      $view_modes[$view_mode_name] = $view_mode_label;
+    }
+  }
+  return $view_modes;
+}
+
+/**
+ * Utility function to return only non-empty values from an array
+ * @param array $array
+ * @return array
+ */
+function _non_empty_array_items(array $array) {
+  foreach($array as $key => $item){
+    if(empty($item)){
+      unset($array[$key]);
+    }
+  }
+  return $array;
 }

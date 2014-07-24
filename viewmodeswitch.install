@@ -26,6 +26,19 @@ function viewmodeswitch_install() {
   foreach ($schema['node_revision']['fields'] as $name => $spec) {
     db_add_field('node_revision', $name, $spec);
   }
+
+  //Create the view mode switcher base field
+  if (!field_info_field('field_view_mode_switcher')) {
+    $field = array(
+      'field_name' => 'field_view_mode_switcher',
+      'type' => 'list_text',
+      'cardinality' => 1,
+      'settings' => array(
+        'allowed_values_function' => 'field_viewmodeswitch_allowed_values',
+      ),
+    );
+    field_create_field($field);
+  }
 }
 
 /**
@@ -33,4 +46,5 @@ function viewmodeswitch_install() {
  */
 function viewmodeswitch_uninstall() {
   db_drop_field('node_revision', 'view_mode_switch');
+  field_delete_field('field_view_mode_switcher');
 }

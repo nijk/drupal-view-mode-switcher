@@ -3,4 +3,4 @@ description = Allows content admins to switch display between custom view modes 
 core = 7.x
 depends[] = node
 ; configure = admin/config/system/view-mode-switch
-files[] = viewmodeswitch.test
+; files[] = viewmodeswitch.test

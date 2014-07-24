@@ -2,5 +2,5 @@ name = View mode switcher
 description = Allows content admins to switch display between custom view modes on node edit.
 core = 7.x
 depends[] = node
-; configure = admin/config/system/view-mode-switch
+configure = admin/config/system/view-mode-switch
 ; files[] = viewmodeswitch.test
